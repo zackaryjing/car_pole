@@ -1,0 +1,19 @@
+[project]
+name = "rl-racing-playground"
+version = "0.1.0"
+description = "A from-scratch 2D racing environment for reinforcement learning experiments."
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "pygame>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+

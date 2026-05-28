@@ -1,0 +1,34 @@
+# RL Racing Playground
+
+一个从头实现的强化学习探索项目。第一阶段目标是做一个可人工游玩的
+2D 随机赛道赛车环境，后续在同一套环境接口上接入手写 DQN、PPO 等算法。
+
+## 当前目标
+
+- 用 `pygame` 实现一个轻量 2D 赛车游戏。
+- 随机生成带起点、终点、边界和圆形障碍物的赛道。
+- 支持人工键盘控制，便于直觉调试任务难度。
+- 支持两种渲染模式：
+  - `follow`: 摄像机跟随车辆，只显示局部视野。
+  - `global`: 固定视角显示整张地图。
+- 游戏状态、物理和奖励逻辑与渲染解耦，为 RL 训练保留接口。
+
+## 计划文档
+
+游戏阶段设计见 [docs/game_plan.md](docs/game_plan.md)。
+
+## Headless 服务器说明
+
+开发环境在 headless server 上时，人工试玩建议使用 X11 forwarding：
+
+```bash
+ssh -X user@server
+python -m rl_racing.play
+```
+
+如果只是跑自动测试或训练，可以使用 SDL dummy video driver：
+
+```bash
+SDL_VIDEODRIVER=dummy python -m pytest
+```
+
