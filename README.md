@@ -71,6 +71,7 @@ python -m pytest
 - 游戏阶段计划见 [docs/game_plan.md](docs/game_plan.md)。
 - 长期游戏设计基准见 [docs/game_design.md](docs/game_design.md)。
 - 环境安装和验证见 [docs/setup.md](docs/setup.md)。
+- 换机器继续开发的上下文见 [docs/handoff.md](docs/handoff.md)。
 
 ## Headless 服务器说明
 
