@@ -13,6 +13,33 @@
   - `global`: 固定视角显示整张地图。
 - 游戏状态、物理和奖励逻辑与渲染解耦，为 RL 训练保留接口。
 
+## 运行
+
+先安装项目：
+
+```bash
+python -m pip install -e .
+```
+
+人工试玩：
+
+```bash
+python -m rl_racing.play --view follow --seed 0
+python -m rl_racing.play --view global --seed 0
+```
+
+也可以使用安装后的脚本：
+
+```bash
+rl-racing-play --view follow --seed 0
+```
+
+运行测试：
+
+```bash
+python -m pytest
+```
+
 ## 设计文档
 
 - 游戏阶段计划见 [docs/game_plan.md](docs/game_plan.md)。
