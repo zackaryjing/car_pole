@@ -323,6 +323,7 @@ reward += failure_penalty if collision or off_track
 ## 9. Rendering
 
 渲染器只读世界状态，不推进环境。
+人工试玩入口可以用 `--sim-speed` 控制每秒真实时间推进多少秒模拟时间，用 `--render-fps` 控制窗口刷新率。训练时不走 pygame 主循环，直接调用 `env.step(action)`，因此模拟和渲染天然解耦。
 
 ### 9.1 Global View
 

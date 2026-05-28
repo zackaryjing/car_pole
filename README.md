@@ -28,6 +28,18 @@ python -m rl_racing.play --view follow --seed 0
 python -m rl_racing.play --view global --seed 0
 ```
 
+人工试玩时，模拟速度和渲染速度是解耦的。比如渲染仍保持 60 FPS，但每秒推进 2 秒模拟时间：
+
+```bash
+python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 2.0
+```
+
+也可以临时调高车辆参数试手感：
+
+```bash
+python -m rl_racing.play --seed 0 --sim-speed 1.5 --max-speed 380 --acceleration 520
+```
+
 也可以使用安装后的脚本：
 
 ```bash
@@ -45,6 +57,8 @@ rl-racing-play --view follow --seed 0
 - `N`: 切到下一个 seed。
 - `V`: 切换 `follow` / `global` 视角。
 - `Esc`: 退出。
+
+训练代码不经过 pygame 主循环；直接调用 `env.step(action)`，所以不会被渲染 FPS 限速。
 
 运行测试：
 
