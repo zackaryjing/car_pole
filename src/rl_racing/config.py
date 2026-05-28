@@ -29,6 +29,8 @@ class VehicleConfig:
     acceleration: float = 340.0
     brake_acceleration: float = 430.0
     drag: float = 1.4
+    steering_rate: float = 2.8
+    steering_return_rate: float = 1.9
     max_turn_rate: float = 3.1
     low_speed_turn_factor: float = 0.35
 
@@ -77,4 +79,3 @@ class EnvConfig:
     reward: RewardConfig = RewardConfig()
     observation: ObservationConfig = ObservationConfig()
     render: RenderConfig = RenderConfig()
-

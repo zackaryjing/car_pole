@@ -24,4 +24,17 @@ def test_vehicle_turn_changes_heading():
 
     assert next_state.heading > state.heading
     assert next_state.angular_velocity > 0.0
+    assert 0.0 < next_state.steering < 1.0
 
+
+def test_steering_ramps_and_auto_returns():
+    cfg = VehicleConfig()
+    dt = 1.0 / 30.0
+    state = VehicleState(position=np.array([0.0, 0.0]), heading=0.0, speed=100.0)
+
+    first = step_vehicle(state, Control(throttle=0.0, steer=1.0), cfg, dt)
+    second = step_vehicle(first, Control(throttle=0.0, steer=1.0), cfg, dt)
+    released = step_vehicle(second, Control(throttle=0.0, steer=0.0), cfg, dt)
+
+    assert 0.0 < first.steering < second.steering < 1.0
+    assert 0.0 < released.steering < second.steering

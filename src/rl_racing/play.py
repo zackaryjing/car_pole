@@ -66,6 +66,7 @@ def main() -> None:
         debug = [
             f"seed {seed} view {view}",
             f"speed {env.vehicle.speed:6.1f}",
+            f"steer {env.vehicle.steering:6.2f}",
             f"progress {info['progress']:.3f}",
             f"reward {reward:7.3f}",
             f"steps {info['steps']}",
@@ -80,4 +81,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

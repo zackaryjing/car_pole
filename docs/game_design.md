@@ -136,6 +136,7 @@ VehicleState(
     position: np.ndarray,      # shape: (2,)
     heading: float,            # radians
     speed: float,              # signed scalar
+    steering: float,           # normalized steering wheel state, [-1, 1]
     angular_velocity: float,   # radians / second
 )
 ```
@@ -151,9 +152,11 @@ VehicleState(
 ```python
 Action(
     throttle: float,  # -1, 0, 1
-    steer: float,     # -1, 0, 1
+    steer: float,     # desired steering input, -1, 0, 1
 )
 ```
+
+`steer` 不是瞬时车辆转向角。车辆内部维护 `VehicleState.steering`，按 `steering_rate` 逐步接近输入目标；没有转向输入时，按 `steering_return_rate` 自动回正。这样键盘和 RL 离散动作都不会让车辆方向瞬间跳变。
 
 离散 action 映射：
 
@@ -176,7 +179,8 @@ speed += throttle * accel * dt
 speed -= drag * speed * dt
 speed = clip(speed, -max_reverse_speed, max_forward_speed)
 
-turn_rate = steer * max_turn_rate * speed / max_forward_speed
+steering = move_toward(steering, steer_target or 0, steering_rate_or_return_rate * dt)
+turn_rate = steering * max_turn_rate * speed / max_forward_speed
 heading += turn_rate * dt
 position += [cos(heading), sin(heading)] * speed * dt
 ```
@@ -529,4 +533,3 @@ class EnvConfig:
 - `SDL_VIDEODRIVER=dummy python -m pytest` 能跑。
 - 文档中命令和实际入口一致。
 - 若改动环境语义，同步更新本设计文档。
-

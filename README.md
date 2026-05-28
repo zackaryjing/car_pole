@@ -34,6 +34,18 @@ python -m rl_racing.play --view global --seed 0
 rl-racing-play --view follow --seed 0
 ```
 
+控制：
+
+- `W` / `Up`: 加速。
+- `S` / `Down`: 刹车，速度降到 0 后继续按会倒车。
+- `A` / `Left`: 左转。
+- `D` / `Right`: 右转。
+- 松开方向键后方向盘会逐步自动回正，不会瞬间归零。
+- `R`: 用当前 seed 重置。
+- `N`: 切到下一个 seed。
+- `V`: 切换 `follow` / `global` 视角。
+- `Esc`: 退出。
+
 运行测试：
 
 ```bash

@@ -22,6 +22,7 @@ def structured_observation(track: Track, vehicle: VehicleState, cfg: EnvConfig) 
     values: list[float] = [
         float(np.clip(vehicle.speed / veh_cfg.max_forward_speed, -1.0, 1.0)),
         float(np.clip(vehicle.angular_velocity / veh_cfg.max_turn_rate, -1.0, 1.0)),
+        float(np.clip(vehicle.steering, -1.0, 1.0)),
         float(heading_error / np.pi),
         float(query["progress"]),
     ]
@@ -53,7 +54,7 @@ def structured_observation(track: Track, vehicle: VehicleState, cfg: EnvConfig) 
 
 def structured_observation_size(cfg: EnvConfig) -> int:
     obs_cfg = cfg.observation
-    return 4 + obs_cfg.ray_count * 2 + obs_cfg.future_count * 2
+    return 5 + obs_cfg.ray_count * 2 + obs_cfg.future_count * 2
 
 
 def _ray_track_distance(track: Track, origin: NDArray[np.float64], direction: NDArray[np.float64], cfg: EnvConfig) -> float:
@@ -73,4 +74,3 @@ def _ray_obstacle_distance(track: Track, origin: NDArray[np.float64], direction:
         if hit is not None and hit <= max_distance:
             best = min(best, hit)
     return float(best / max_distance)
-

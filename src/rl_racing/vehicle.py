@@ -18,6 +18,7 @@ class VehicleState:
     position: NDArray[np.float64]
     heading: float
     speed: float = 0.0
+    steering: float = 0.0
     angular_velocity: float = 0.0
 
 
@@ -27,11 +28,30 @@ def step_vehicle(state: VehicleState, control: Control, cfg: VehicleConfig, dt: 
     speed -= cfg.drag * speed * dt
     speed = float(np.clip(speed, -cfg.max_reverse_speed, cfg.max_forward_speed))
 
+    target_steering = float(np.clip(control.steer, -1.0, 1.0))
+    if abs(target_steering) > 1e-6:
+        steering = _move_toward(state.steering, target_steering, cfg.steering_rate * dt)
+    else:
+        steering = _move_toward(state.steering, 0.0, cfg.steering_return_rate * dt)
+
     speed_ratio = abs(speed) / cfg.max_forward_speed
     turn_authority = cfg.low_speed_turn_factor + (1.0 - cfg.low_speed_turn_factor) * speed_ratio
     direction = 1.0 if speed >= 0.0 else -1.0
-    angular_velocity = control.steer * cfg.max_turn_rate * turn_authority * direction
+    angular_velocity = steering * cfg.max_turn_rate * turn_authority * direction
     heading = normalize_angle(state.heading + angular_velocity * dt)
     position = state.position + np.array([cos(heading), sin(heading)], dtype=np.float64) * speed * dt
-    return VehicleState(position=position, heading=heading, speed=speed, angular_velocity=angular_velocity)
+    return VehicleState(
+        position=position,
+        heading=heading,
+        speed=speed,
+        steering=steering,
+        angular_velocity=angular_velocity,
+    )
 
+
+def _move_toward(value: float, target: float, max_delta: float) -> float:
+    if value < target:
+        return min(value + max_delta, target)
+    if value > target:
+        return max(value - max_delta, target)
+    return value
