@@ -13,9 +13,11 @@
   - `global`: 固定视角显示整张地图。
 - 游戏状态、物理和奖励逻辑与渲染解耦，为 RL 训练保留接口。
 
-## 计划文档
+## 设计文档
 
-游戏阶段设计见 [docs/game_plan.md](docs/game_plan.md)。
+- 游戏阶段计划见 [docs/game_plan.md](docs/game_plan.md)。
+- 长期游戏设计基准见 [docs/game_design.md](docs/game_design.md)。
+- 环境安装和验证见 [docs/setup.md](docs/setup.md)。
 
 ## Headless 服务器说明
 
@@ -31,4 +33,3 @@ python -m rl_racing.play
 ```bash
 SDL_VIDEODRIVER=dummy python -m pytest
 ```
-
