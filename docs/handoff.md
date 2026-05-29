@@ -369,7 +369,7 @@ python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 1.5
 - 默认车辆速度和加速度可能仍需要手感调参。
 - reset 后碰到 terminated 会立即重置，人工试玩时可能看不到失败瞬间，后续可加 pause/death screen。
 - 还缺少完整 ghost race UI、mp4/gif 导出和 debug overlay 开关。
-- 还没有实现 RL 训练代码。
+- DQN v1 代码已实现，但尚未在 4090 服务器完成真实 GPU 训练验证。
 
 ## 13. 下一步建议
 
@@ -424,6 +424,17 @@ python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 1.5
 
 ## 15. Quick Start For Next Agent
 
+如果在另一台机器开启新对话，先给 agent 这段最小上下文：
+
+```text
+项目是 /car_pole 的 RL Racing Playground。当前 main 已有可玩 pygame 赛车环境、
+sensor observation、episode trajectory/best-record、以及 sensor DQN v1。
+训练入口是 rl-racing-train-dqn。默认 obs 是 66 维 sensor，不给中心线偏移。
+当前本机验证是 30 passed, 1 skipped；skip 是无 torch 环境跳过 DQN smoke tests。
+下一步优先在 4090 服务器安装合适 PyTorch 后跑短 DQN smoke，再观察 metrics.csv、
+trajectories 和 best_records。
+```
+
 ```bash
 git clone git@github.com:zackaryjing/car_pole.git
 cd car_pole
@@ -432,6 +443,19 @@ conda activate rl-racing
 pip install -e ".[dev]"
 python -m pytest
 python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 1.5
+```
+
+DQN 服务器 smoke:
+
+```bash
+rl-racing-train-dqn \
+  --device cuda \
+  --total-steps 2000 \
+  --learning-starts 100 \
+  --batch-size 64 \
+  --eval-interval 1000 \
+  --checkpoint-interval 1000 \
+  --run-name smoke_cuda
 ```
 
 如果游戏太慢：
