@@ -1,6 +1,6 @@
 # Agent Environment Record
 
-Last updated: 2026-05-29 17:46 UTC
+Last updated: 2026-05-29 18:16 UTC
 
 This file records the current progress and machine-specific environment for the
 Codex session running on the `jzy` server. `AGENTS.md` remains the project-level
@@ -35,9 +35,9 @@ Recent remote progress now present locally:
 - Hostname: `jzy`
 - OS context: headless Linux server accessed through Codex
 - Project directory: `/root/projects/reinforce_learning/car_pole`
-- Active conda environment: `base`
-- Python executable: `/root/miniconda3/bin/python`
-- Python version: `Python 3.13.11`
+- Training conda environment for this machine: `dmcad`
+- Python executable: `/root/miniconda3/envs/dmcad/bin/python`
+- Python version: `Python 3.10.20`
 
 Available conda environments:
 
@@ -51,27 +51,34 @@ openpi     /root/miniconda3/envs/openpi
 text2cad   /root/miniconda3/envs/text2cad
 ```
 
-## Installed Packages In Current Base Env
+## Installed Packages In Current dmcad Env
 
 Verified packages:
 
 ```text
-numpy       2.4.2
+numpy       1.26.4
 pygame      2.6.1
 pytest      9.0.3
-torch       2.7.1+cu118
-torchvision 0.22.1+cu118
-torchaudio  2.7.1+cu118
+torch       2.1.2
+torchvision 0.16.2
+torchaudio  2.1.2
 ```
 
 PyTorch CUDA verification in a GPU-accessible context:
 
 ```text
-torch 2.7.1+cu118
-torchvision 0.22.1+cu118
-torchaudio 2.7.1+cu118
+torch 2.1.2
+torch CUDA 11.8
 cuda True 8
 NVIDIA GeForce RTX 4090
+```
+
+On 2026-05-29, `pygame` and `pytest` were installed into `dmcad`, and this
+project was installed editable with:
+
+```bash
+/root/miniconda3/envs/dmcad/bin/python -m pip install pygame pytest -i https://pypi.tuna.tsinghua.edu.cn/simple
+/root/miniconda3/envs/dmcad/bin/python -m pip install -e .
 ```
 
 GPU inventory:
@@ -90,37 +97,47 @@ GPU-accessible or escalated context when validating CUDA.
 Command:
 
 ```bash
-python -m pytest
+/root/miniconda3/envs/dmcad/bin/python -m pytest
 ```
 
 Result on this server:
 
 ```text
-32 passed, 1 warning in 13.59s
+32 passed in 19.78s
 ```
 
-The warning is from pygame importing deprecated `pkg_resources`; it does not
-affect the tests.
+Additional non-training smoke checks completed in `dmcad`:
+
+- `RacingEnv` sensor reset/step: observation shape `(66,)`, dtype `float32`.
+- DQN CLI help: imports and argument parser work.
+- Very short CUDA DQN smoke with `total_steps=64`, `learning_starts=16`,
+  `batch_size=8`, output under `/tmp/rl_racing_smoke/dmcad_cuda_smoke`.
+- Smoke generated `metrics.csv`, `checkpoints/final.pt`, step checkpoints, and
+  trajectory `.npz/.json` files.
+- Loaded the smoke checkpoint with `load_policy(..., device="cuda")` and ran one
+  short episode successfully through the policy path.
+
+This was only a runtime smoke check, not formal training.
 
 ## Useful Commands On This Server
 
 Run full tests:
 
 ```bash
-python -m pytest
+/root/miniconda3/envs/dmcad/bin/python -m pytest
 ```
 
 Run manual play if a display/X forwarding is available, though local display is
 preferred for real input latency:
 
 ```bash
-python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 1.5
+/root/miniconda3/envs/dmcad/bin/python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 1.5
 ```
 
 Short DQN smoke on GPU:
 
 ```bash
-rl-racing-train-dqn \
+/root/miniconda3/envs/dmcad/bin/python -m rl_racing.rl.train_dqn \
   --device cuda \
   --total-steps 2000 \
   --learning-starts 100 \
@@ -133,7 +150,7 @@ rl-racing-train-dqn \
 Suggested longer single-GPU DQN run:
 
 ```bash
-rl-racing-train-dqn \
+/root/miniconda3/envs/dmcad/bin/python -m rl_racing.rl.train_dqn \
   --device cuda \
   --total-steps 200000 \
   --batch-size 256 \
@@ -144,7 +161,7 @@ rl-racing-train-dqn \
 
 - `AGENTS.md` currently describes another Linux workstation using
   `/home/jing/miniconda3/envs/system_dev/bin/python`. That is project-level
-  guidance for that machine. For this `jzy` server session, use the environment
+  guidance for that machine. For this `jzy` server session, use `dmcad` as
   recorded in this file unless the user asks to switch conda environments.
 - The current server is suitable for PyTorch training and batch validation.
 - Manual pygame feel testing is still better on a local display machine than
@@ -154,4 +171,3 @@ rl-racing-train-dqn \
   decoupled.
 - Add focused tests for any new core behavior.
 - Commit and push at meaningful checkpoints.
-
