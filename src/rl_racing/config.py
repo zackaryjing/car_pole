@@ -46,9 +46,9 @@ class RewardConfig:
 
 @dataclass(frozen=True)
 class ObservationConfig:
-    obs_type: str = "structured"
+    obs_type: str = "sensor"
     ray_count: int = 21
-    ray_fov_degrees: float = 180.0
+    ray_fov_degrees: float = 220.0
     ray_max_distance: float = 350.0
     future_count: int = 10
     future_step_distance: float = 80.0

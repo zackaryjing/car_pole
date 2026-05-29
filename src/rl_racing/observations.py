@@ -8,9 +8,33 @@ import numpy as np
 from numpy.typing import NDArray
 
 from rl_racing.config import EnvConfig
-from rl_racing.geometry import normalize_angle, ray_circle_intersection, rotate, world_to_local
-from rl_racing.track import Track
+from rl_racing.geometry import normalize_angle, ray_circle_intersection, ray_segment_intersection, rotate, world_to_local
+from rl_racing.track import Track, finish_segment
 from rl_racing.vehicle import VehicleState
+
+
+def sensor_observation(track: Track, vehicle: VehicleState, cfg: EnvConfig) -> NDArray[np.float32]:
+    obs_cfg = cfg.observation
+    veh_cfg = cfg.vehicle
+    values: list[float] = [
+        float(np.clip(vehicle.speed / veh_cfg.max_forward_speed, -1.0, 1.0)),
+        float(np.clip(vehicle.angular_velocity / veh_cfg.max_turn_rate, -1.0, 1.0)),
+        float(np.clip(vehicle.steering, -1.0, 1.0)),
+    ]
+
+    track_distances: list[float] = []
+    obstacle_distances: list[float] = []
+    finish_distances: list[float] = []
+    for angle in _ray_angles(cfg):
+        direction = rotate(np.array([1.0, 0.0], dtype=np.float64), vehicle.heading + float(angle))
+        track_distances.append(_ray_track_distance(track, vehicle.position, direction, cfg))
+        obstacle_distances.append(_ray_obstacle_distance(track, vehicle.position, direction, cfg))
+        finish_distances.append(_ray_finish_distance(track, vehicle.position, direction, cfg))
+
+    values.extend(track_distances)
+    values.extend(obstacle_distances)
+    values.extend(finish_distances)
+    return np.asarray(values, dtype=np.float32)
 
 
 def structured_observation(track: Track, vehicle: VehicleState, cfg: EnvConfig) -> NDArray[np.float32]:
@@ -27,14 +51,9 @@ def structured_observation(track: Track, vehicle: VehicleState, cfg: EnvConfig) 
         float(query["progress"]),
     ]
 
-    angles = np.linspace(
-        -radians(obs_cfg.ray_fov_degrees) * 0.5,
-        radians(obs_cfg.ray_fov_degrees) * 0.5,
-        obs_cfg.ray_count,
-    )
     track_distances: list[float] = []
     obstacle_distances: list[float] = []
-    for angle in angles:
+    for angle in _ray_angles(cfg):
         direction = rotate(np.array([1.0, 0.0], dtype=np.float64), vehicle.heading + float(angle))
         track_distances.append(_ray_track_distance(track, vehicle.position, direction, cfg))
         obstacle_distances.append(_ray_obstacle_distance(track, vehicle.position, direction, cfg))
@@ -52,9 +71,22 @@ def structured_observation(track: Track, vehicle: VehicleState, cfg: EnvConfig) 
     return np.asarray(values, dtype=np.float32)
 
 
+def sensor_observation_size(cfg: EnvConfig) -> int:
+    return 3 + cfg.observation.ray_count * 3
+
+
 def structured_observation_size(cfg: EnvConfig) -> int:
     obs_cfg = cfg.observation
     return 5 + obs_cfg.ray_count * 2 + obs_cfg.future_count * 2
+
+
+def _ray_angles(cfg: EnvConfig) -> NDArray[np.float64]:
+    obs_cfg = cfg.observation
+    return np.linspace(
+        -radians(obs_cfg.ray_fov_degrees) * 0.5,
+        radians(obs_cfg.ray_fov_degrees) * 0.5,
+        obs_cfg.ray_count,
+    )
 
 
 def _ray_track_distance(track: Track, origin: NDArray[np.float64], direction: NDArray[np.float64], cfg: EnvConfig) -> float:
@@ -74,3 +106,12 @@ def _ray_obstacle_distance(track: Track, origin: NDArray[np.float64], direction:
         if hit is not None and hit <= max_distance:
             best = min(best, hit)
     return float(best / max_distance)
+
+
+def _ray_finish_distance(track: Track, origin: NDArray[np.float64], direction: NDArray[np.float64], cfg: EnvConfig) -> float:
+    max_distance = cfg.observation.ray_max_distance
+    f0, f1 = finish_segment(track)
+    hit = ray_segment_intersection(origin, direction, f0, f1)
+    if hit is not None and hit <= max_distance:
+        return float(hit / max_distance)
+    return 1.0

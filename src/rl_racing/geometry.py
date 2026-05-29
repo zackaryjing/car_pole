@@ -70,32 +70,28 @@ def project_point_to_polyline(
     if cumulative_lengths is None:
         cumulative_lengths = polyline_lengths(points)
 
-    best_distance = float("inf")
-    best_point = points[0].copy()
-    best_index = 0
-    best_t = 0.0
-    best_arc = 0.0
+    starts = points[:-1]
+    segments = points[1:] - starts
+    length_sq = np.einsum("ij,ij->i", segments, segments)
+    point_offsets = point - starts
+    numerator = np.einsum("ij,ij->i", point_offsets, segments)
+    t = np.divide(numerator, length_sq, out=np.zeros_like(numerator), where=length_sq > 1e-12)
+    t = np.clip(t, 0.0, 1.0)
+    projected = starts + segments * t[:, None]
+    deltas = point - projected
+    distance_sq = np.einsum("ij,ij->i", deltas, deltas)
+    best_index = int(np.argmin(distance_sq))
+    segment_length = cumulative_lengths[best_index + 1] - cumulative_lengths[best_index]
+    best_t = float(t[best_index])
+    best_arc = float(cumulative_lengths[best_index] + segment_length * best_t)
 
-    for idx in range(len(points) - 1):
-        start = points[idx]
-        end = points[idx + 1]
-        segment = end - start
-        length_sq = float(np.dot(segment, segment))
-        if length_sq <= 1e-12:
-            t = 0.0
-        else:
-            t = float(np.clip(np.dot(point - start, segment) / length_sq, 0.0, 1.0))
-        projected = start + segment * t
-        distance = float(np.linalg.norm(point - projected))
-        if distance < best_distance:
-            best_distance = distance
-            best_point = projected
-            best_index = idx
-            best_t = t
-            segment_length = cumulative_lengths[idx + 1] - cumulative_lengths[idx]
-            best_arc = float(cumulative_lengths[idx] + segment_length * t)
-
-    return SegmentProjection(best_point, best_distance, best_index, best_t, best_arc)
+    return SegmentProjection(
+        point=projected[best_index].copy(),
+        distance=float(np.sqrt(distance_sq[best_index])),
+        segment_index=best_index,
+        segment_t=best_t,
+        arc_length=best_arc,
+    )
 
 
 def sample_polyline_at(
@@ -124,3 +120,19 @@ def ray_circle_intersection(origin: Vec2, direction: Vec2, center: Vec2, radius:
     hits = [r for r in roots if r >= 0.0]
     return min(hits) if hits else None
 
+
+def ray_segment_intersection(origin: Vec2, direction: Vec2, start: Vec2, end: Vec2) -> float | None:
+    segment = end - start
+    denom = _cross(direction, segment)
+    if abs(denom) <= 1e-9:
+        return None
+    offset = start - origin
+    t = _cross(offset, segment) / denom
+    u = _cross(offset, direction) / denom
+    if t >= 0.0 and 0.0 <= u <= 1.0:
+        return float(t)
+    return None
+
+
+def _cross(a: Vec2, b: Vec2) -> float:
+    return float(a[0] * b[1] - a[1] * b[0])

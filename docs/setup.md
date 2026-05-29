@@ -1,8 +1,43 @@
 # Setup
 
-本项目当前使用 base conda 环境开发和运行。
+本项目会在多台机器、多个 Codex 实例中开发。每台机器的推荐 Python 环境
+需要记录在本文档中；Codex 项目级工作约定记录在仓库根目录的
+`AGENTS.md`，这是 Codex CLI 当前默认会在启动项目时读取的项目指令文件。
 
-## Base Environment
+## Environment Matrix
+
+| Platform / machine | Environment | Python | Interpreter | Status |
+| --- | --- | --- | --- | --- |
+| 当前 Linux 工作站 | conda `system_dev` | 3.9.24 | `/home/jing/miniconda3/envs/system_dev/bin/python` | 当前 Codex 默认使用 |
+| 服务器历史记录 | conda `base` | 3.13 | `/root/miniconda3/bin/python` | 历史记录，见下方 |
+| 本地开发机 | conda `rl-racing` | 3.11 建议 | `python` after `conda activate rl-racing` | 建议配置 |
+
+当前 Linux 工作站请显式使用：
+
+```bash
+/home/jing/miniconda3/envs/system_dev/bin/python
+```
+
+验证：
+
+```bash
+/home/jing/miniconda3/envs/system_dev/bin/python --version
+/home/jing/miniconda3/envs/system_dev/bin/python -m pytest
+```
+
+当前已验证：
+
+```text
+Python 3.9.24
+28 passed
+```
+
+不要假设 `python` 命令在 Codex shell 中可用；当前 shell 中应使用上述绝对
+路径。
+
+## Historical Base Environment
+
+以下是早期服务器 base 环境记录，保留用于迁移和排障。
 
 当前服务器环境：
 

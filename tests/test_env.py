@@ -24,6 +24,31 @@ def test_step_moves_environment_forward():
     assert terminated is False
     assert truncated is False
     assert info["steps"] == 1
+    assert info["reward"] == info["reward_total"]
+    assert np.isclose(
+        info["reward_total"],
+        info["reward_progress"]
+        + info["reward_time"]
+        + info["reward_heading"]
+        + info["reward_success"]
+        + info["reward_failure"],
+    )
+
+
+def test_advance_skips_observation(monkeypatch):
+    env = RacingEnv()
+    env.reset(seed=0)
+
+    def fail_observe():
+        raise AssertionError("advance should not build observations")
+
+    monkeypatch.setattr(env, "observe", fail_observe)
+    reward, terminated, truncated, info = env.advance(1)
+
+    assert isinstance(reward, float)
+    assert terminated is False
+    assert truncated is False
+    assert info["steps"] == 1
 
 
 def test_off_track_terminates():
@@ -37,6 +62,7 @@ def test_off_track_terminates():
     assert terminated
     assert info["off_track"]
     assert info["done_reason"] == "off_track"
+    assert info["reward_failure"] < 0.0
 
 
 def test_collision_terminates_when_obstacle_exists():
@@ -66,6 +92,7 @@ def test_success_near_finish():
     assert terminated
     assert info["success"]
     assert info["done_reason"] == "success"
+    assert info["reward_success"] > 0.0
 
 
 def test_image_observation_with_dummy_video_driver(monkeypatch):
@@ -78,4 +105,3 @@ def test_image_observation_with_dummy_video_driver(monkeypatch):
     assert obs.shape == (64, 64, 3)
     assert obs.dtype == np.uint8
     assert obs.max() > obs.min()
-

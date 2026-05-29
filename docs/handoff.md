@@ -178,15 +178,21 @@ frame = env.render(mode="rgb_array", view="follow")
 - `seed`
 - `done_reason`
 - `reward`
+- `reward_progress`
+- `reward_time`
+- `reward_heading`
+- `reward_success`
+- `reward_failure`
+- `reward_total`
 
 ## 8. Observation
 
-当前默认观测是 structured observation。
+当前默认观测是 `sensor` observation。
 
 shape 当前是：
 
 ```text
-(67,)
+(66,)
 ```
 
 组成：
@@ -194,13 +200,29 @@ shape 当前是：
 - 速度，归一化。
 - 角速度，归一化。
 - steering 状态，范围 `[-1, 1]`。
-- 与赛道切线方向的 heading error。
-- progress。
 - 多条 ray 到赛道边界的距离。
 - 多条 ray 到障碍的距离。
-- 未来若干中心线点在车辆局部坐标中的位置。
+- 多条 ray 到终点线的距离。
+
+`sensor` 不直接包含 progress、中心线左右偏移、heading error 或未来中心线点。
+旧 structured observation 保留为 `obs_type="privileged"`，只用于 debug/teacher policy。
 
 图像观测也已经能通过 `obs_type="image"` 生成离屏 RGB frame，主要测试已覆盖 dummy video driver 下不打开窗口也能生成图像。图像观测后续还需要做得更适合训练，比如车头朝上、局部视野裁剪、灰度/缩放、帧堆叠等。
+
+## 8.1 Evaluation And Replay
+
+当前已有轻量 RL 评估接口：
+
+- `rl_racing.policies.Policy`: `reset(seed, info)` 和 `act(obs, info) -> int`。
+- `RandomPolicy`: 随机 baseline。
+- `ReplayPolicy`: 按保存的 action 序列重放。
+- `CenterlineHeuristicPolicy`: privileged sanity-check policy，不作为训练 baseline。
+- `run_episode(...)`: 跑完整 episode，可保存轨迹。
+- `save_trajectory(...)` / `load_trajectory(...)`: 保存 `.npz` 状态轨迹和 `.json` metadata。
+- `maybe_update_best_record(...)`: 只接受成功 episode，并按 steps 更少更新 best。
+- `compare_policy_to_best(...)`: 跑当前 policy 并返回同 seed best 记录，用于后续 ghost race UI。
+- `render_trajectory_frame(...)`: headless 下从单条轨迹渲染 RGB frame。
+- `render_race_frame(...)`: headless 下同帧渲染当前轨迹和 best/ghost 轨迹。
 
 ## 9. 当前测试状态
 
@@ -213,10 +235,8 @@ python -m pytest
 当前结果：
 
 ```text
-14 passed, 1 warning
+28 passed
 ```
-
-warning 来自 pygame 依赖里的 `pkg_resources` deprecation，不影响运行。
 
 测试覆盖：
 
@@ -232,8 +252,31 @@ warning 来自 pygame 依赖里的 `pkg_resources` deprecation，不影响运行
 - finish success termination。
 - dummy video driver 下 image observation。
 - 人工 play loop 的 simulation accumulator。
+- sensor/privileged observation shape。
+- reward breakdown。
+- episode trajectory 保存/加载/重放。
+- best-record 更新规则。
+- headless trajectory/race frame 渲染。
 
 ## 10. 本地机器建议安装
+
+当前 Linux 工作站的 Codex 会话请使用 `system_dev` conda 环境：
+
+```bash
+/home/jing/miniconda3/envs/system_dev/bin/python -m pytest
+/home/jing/miniconda3/envs/system_dev/bin/python -m rl_racing.play --view follow --seed 0
+```
+
+该环境当前验证为：
+
+```text
+Python 3.9.24
+28 passed
+```
+
+仓库根目录的 `AGENTS.md` 是 Codex CLI 当前默认读取的项目级指令文件。
+不要使用 `CODEX.md` 作为默认项目 prompt，除非对应 Codex 配置显式把它加入
+`project_doc_fallback_filenames`。
 
 推荐在本地机器新建环境，不一定沿用服务器 base 环境：
 
@@ -283,7 +326,7 @@ python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 1.5
 - 奖励目前是简单 progress + time penalty + success/failure，后续需要实验。
 - 默认车辆速度和加速度可能仍需要手感调参。
 - reset 后碰到 terminated 会立即重置，人工试玩时可能看不到失败瞬间，后续可加 pause/death screen。
-- 缺少 episode replay、trajectory 记录和 debug overlay 开关。
+- 还缺少完整 ghost race UI、mp4/gif 导出和 debug overlay 开关。
 - 还没有实现 RL 训练代码。
 
 ## 13. 下一步建议
@@ -310,20 +353,18 @@ python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 1.5
    - 支持不同难度等级。
 
 4. 完善 observation。
-   - 结构化观测增加可选字段开关。
    - 图像观测固定车头朝上。
    - 添加灰度、resize、frame stack。
-   - 添加 observation shape 测试。
+   - 对 sensor ray 计算继续做性能优化。
 
 5. 做 baseline policy 和评估工具。
-   - random policy runner。
-   - simple centerline-following heuristic。
    - episode 成功率统计。
-   - 保存 replay 或 mp4。
+   - trajectory ghost race UI。
+   - 可选导出 mp4/gif。
 
 6. 再进入 RL。
    - replay buffer。
-   - MLP DQN for structured obs。
+   - MLP DQN for sensor obs。
    - CNN DQN for image obs。
    - PPO rollout buffer。
    - TensorBoard 或 CSV logging。
@@ -363,4 +404,3 @@ python -m rl_racing.play --seed 0 --sim-speed 2.0 --max-speed 420 --acceleration
 - 降低 `--sim-speed`。
 - 调低 `max_speed`。
 - 临时在 `TrackConfig` 里增大 `width` 或减少 obstacle 数量。
-

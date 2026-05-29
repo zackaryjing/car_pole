@@ -12,6 +12,8 @@
   - `follow`: 摄像机跟随车辆，只显示局部视野。
   - `global`: 固定视角显示整张地图。
 - 游戏状态、物理和奖励逻辑与渲染解耦，为 RL 训练保留接口。
+- 默认 RL 观测是局部传感器 `sensor`，不直接暴露中心线偏移或未来中心线点。
+- 支持 episode 轨迹保存、加载、离屏回放渲染和 best-record 比较接口。
 
 ## 运行
 
@@ -59,6 +61,19 @@ rl-racing-play --view follow --seed 0
 - `Esc`: 退出。
 
 训练代码不经过 pygame 主循环；直接调用 `env.step(action)`，所以不会被渲染 FPS 限速。
+
+RL 接口示例：
+
+```python
+from rl_racing.env import RacingEnv
+from rl_racing.episode import run_episode
+from rl_racing.policies import RandomPolicy
+
+env = RacingEnv()
+obs, info = env.reset(seed=0)
+obs, reward, terminated, truncated, info = env.step(1)
+result = run_episode(env, RandomPolicy(seed=0), seed=0, trajectory_path="runs/random_seed_0")
+```
 
 运行测试：
 

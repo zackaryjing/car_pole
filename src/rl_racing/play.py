@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 
 from rl_racing.actions import Control
 from rl_racing.config import EnvConfig, ObservationConfig, VehicleConfig
@@ -18,6 +19,64 @@ def consume_simulation_steps(
     steps = min(int(accumulator / sim_dt), max_steps)
     accumulator -= steps * sim_dt
     return steps, accumulator
+
+
+@dataclass(frozen=True)
+class ManualFrameResult:
+    sim_steps: int
+    accumulator: float
+    reward: float
+    info: dict
+    reset: bool
+
+
+def advance_manual_frame(
+    env: RacingEnv,
+    control: Control,
+    accumulator: float,
+    frame_seconds: float,
+    sim_speed: float,
+    seed: int,
+    reward: float,
+    info: dict,
+) -> ManualFrameResult:
+    sim_steps, accumulator = consume_simulation_steps(
+        accumulator=accumulator,
+        frame_seconds=frame_seconds,
+        sim_speed=max(sim_speed, 0.0),
+        sim_dt=env.config.dt,
+    )
+    reset = False
+    for _ in range(sim_steps):
+        reward, terminated, truncated, info = env.advance(control)
+        if terminated or truncated:
+            env.reset(seed=seed)
+            accumulator = 0.0
+            reset = True
+            break
+    return ManualFrameResult(
+        sim_steps=sim_steps,
+        accumulator=accumulator,
+        reward=reward,
+        info=info,
+        reset=reset,
+    )
+
+
+def control_from_pressed_keys(is_pressed: Callable[[int], bool]) -> Control:
+    import pygame
+
+    throttle = 0.0
+    steer = 0.0
+    if is_pressed(pygame.K_w) or is_pressed(pygame.K_UP):
+        throttle += 1.0
+    if is_pressed(pygame.K_s) or is_pressed(pygame.K_DOWN):
+        throttle -= 1.0
+    if is_pressed(pygame.K_a) or is_pressed(pygame.K_LEFT):
+        steer -= 1.0
+    if is_pressed(pygame.K_d) or is_pressed(pygame.K_RIGHT):
+        steer += 1.0
+    return Control(throttle=throttle, steer=steer)
 
 
 def main() -> None:
@@ -59,8 +118,6 @@ def main() -> None:
     frame_seconds = 0.0
 
     while running:
-        throttle = 0.0
-        steer = 0.0
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -76,27 +133,22 @@ def main() -> None:
                     view = "global" if view == "follow" else "follow"
 
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_w] or keys[pygame.K_UP]:
-            throttle += 1.0
-        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            throttle -= 1.0
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            steer -= 1.0
-        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            steer += 1.0
+        control = control_from_pressed_keys(lambda key: bool(keys[key]))
 
-        sim_steps, accumulator = consume_simulation_steps(
+        frame_result = advance_manual_frame(
+            env=env,
+            control=control,
             accumulator=accumulator,
             frame_seconds=frame_seconds,
-            sim_speed=max(args.sim_speed, 0.0),
-            sim_dt=env.config.dt,
+            sim_speed=args.sim_speed,
+            seed=seed,
+            reward=reward,
+            info=info,
         )
-        for _ in range(sim_steps):
-            _, reward, terminated, truncated, info = env.step(Control(throttle=throttle, steer=steer))
-            if terminated or truncated:
-                env.reset(seed=seed)
-                accumulator = 0.0
-                break
+        sim_steps = frame_result.sim_steps
+        accumulator = frame_result.accumulator
+        reward = frame_result.reward
+        info = frame_result.info
 
         assert env.track is not None and env.vehicle is not None
         debug = [
