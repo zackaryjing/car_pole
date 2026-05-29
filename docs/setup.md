@@ -29,8 +29,11 @@
 
 ```text
 Python 3.9.24
-28 passed
+30 passed, 1 skipped
 ```
+
+当前 Linux 工作站没有安装 PyTorch，也没有 NVIDIA GPU。DQN smoke tests 在
+这里会 skip；训练正确性需要在安装了 PyTorch 的服务器或本地 GPU 机器上验证。
 
 不要假设 `python` 命令在 Codex shell 中可用；当前 shell 中应使用上述绝对
 路径。

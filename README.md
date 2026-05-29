@@ -75,6 +75,21 @@ obs, reward, terminated, truncated, info = env.step(1)
 result = run_episode(env, RandomPolicy(seed=0), seed=0, trajectory_path="runs/random_seed_0")
 ```
 
+Sensor DQN 训练入口：
+
+```bash
+rl-racing-train-dqn --device auto --total-steps 200000 --run-name dqn_sensor_seed0
+```
+
+在 3050 Ti 4GB 这类小显存机器上，建议先降低 batch：
+
+```bash
+rl-racing-train-dqn --device cuda --batch-size 64 --replay-size 100000 --total-steps 50000
+```
+
+训练输出默认写到 `runs/dqn_sensor/<run-name>/`，包含 `config.json`、
+`metrics.csv`、`checkpoints/`、`trajectories/` 和 `best_records/`。
+
 运行测试：
 
 ```bash

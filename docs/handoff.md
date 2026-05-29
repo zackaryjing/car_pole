@@ -71,11 +71,14 @@ src/rl_racing/
   config.py        # dataclass 配置，集中放环境/车辆/奖励/观测/渲染参数
   env.py           # RacingEnv reset/step/observe/render
   geometry.py      # 2D 几何、polyline 投影、坐标变换、ray-circle
-  observations.py  # structured observation，后续 image observation 可继续扩展
+  observations.py  # sensor/privileged/image observation
+  episode.py       # episode 评估、trajectory 保存/加载、best record、race frame
   play.py          # pygame 人工试玩入口
+  policies.py      # random/replay/heuristic policy
   renderer.py      # pygame global/follow 渲染和离屏 RGB frame
   track.py         # 随机赛道生成、障碍生成、progress 查询
   vehicle.py       # 车辆状态和简单运动学
+  rl/              # DQN 训练、replay buffer、网络、CLI
 ```
 
 测试：
@@ -224,6 +227,39 @@ shape 当前是：
 - `render_trajectory_frame(...)`: headless 下从单条轨迹渲染 RGB frame。
 - `render_race_frame(...)`: headless 下同帧渲染当前轨迹和 best/ghost 轨迹。
 
+## 8.2 DQN Training
+
+当前已有 sensor-observation DQN v1：
+
+- `rl_racing.rl.replay_buffer.ReplayBuffer`: CPU numpy replay buffer。
+- `rl_racing.rl.networks.MLPQNetwork`: `66 -> hidden -> hidden -> 9` Q-network。
+- `rl_racing.rl.dqn.train_dqn(...)`: 单环境 DQN 训练循环，device 支持 `auto`/`cpu`/`cuda`。
+- `rl_racing.rl.dqn.load_policy(...)`: 从 checkpoint 加载 greedy policy。
+- CLI: `rl-racing-train-dqn`。
+
+默认输出：
+
+```text
+runs/dqn_sensor/<run-name>/
+  config.json
+  metrics.csv
+  checkpoints/
+  trajectories/
+  best_records/
+```
+
+4090 服务器建议先用单卡：
+
+```bash
+rl-racing-train-dqn --device cuda --total-steps 200000 --batch-size 256 --run-name dqn_sensor_seed0
+```
+
+3050 Ti 4GB 建议缩小 batch 和 replay：
+
+```bash
+rl-racing-train-dqn --device cuda --batch-size 64 --replay-size 100000 --total-steps 50000
+```
+
 ## 9. 当前测试状态
 
 当前测试命令：
@@ -235,8 +271,11 @@ python -m pytest
 当前结果：
 
 ```text
-28 passed
+30 passed, 1 skipped
 ```
+
+skip 是当前 Linux 工作站未安装 PyTorch 导致的 DQN smoke test skip。服务器安装
+PyTorch 后应运行完整测试。
 
 测试覆盖：
 
@@ -257,6 +296,8 @@ python -m pytest
 - episode trajectory 保存/加载/重放。
 - best-record 更新规则。
 - headless trajectory/race frame 渲染。
+- replay buffer。
+- DQN smoke tests，当前无 torch 机器会 skip。
 
 ## 10. 本地机器建议安装
 
@@ -271,7 +312,7 @@ python -m pytest
 
 ```text
 Python 3.9.24
-28 passed
+30 passed, 1 skipped
 ```
 
 仓库根目录的 `AGENTS.md` 是 Codex CLI 当前默认读取的项目级指令文件。
@@ -286,13 +327,14 @@ conda activate rl-racing
 pip install -e ".[dev]"
 ```
 
-如果要装 PyTorch，根据本地机器驱动选择对应 CUDA wheel。游戏本身当前只需要：
+PyTorch 是项目正式依赖，用于 DQN/PPO 训练。服务器或 GPU 本地机建议先根据
+驱动安装合适 CUDA wheel，再 `pip install -e ".[dev]"`，避免 pip 默认拉到不合适
+的 wheel。只做人工试玩或非训练测试时，可以暂时没有 PyTorch；DQN 测试会 skip。
 
 - numpy
 - pygame
 - pytest
-
-PyTorch 是后续 RL 训练需要，不是当前 pygame 游戏必须依赖。
+- torch
 
 在本地有显示器的机器上，不需要 X11 forwarding，直接运行：
 
@@ -362,12 +404,11 @@ python -m rl_racing.play --view follow --seed 0 --render-fps 60 --sim-speed 1.5
    - trajectory ghost race UI。
    - 可选导出 mp4/gif。
 
-6. 再进入 RL。
-   - replay buffer。
-   - MLP DQN for sensor obs。
+6. 继续 RL。
+   - 在 4090 服务器验证 DQN 训练稳定性。
+   - 添加 TensorBoard 或 CSV 聚合分析。
    - CNN DQN for image obs。
    - PPO rollout buffer。
-   - TensorBoard 或 CSV logging。
 
 ## 14. Coding Rules For Next Agent
 

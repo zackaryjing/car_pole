@@ -5,9 +5,9 @@ Project-level instructions for Codex agents working in this repository.
 ## Project Purpose
 
 This project is a from-scratch reinforcement learning playground built around a
-2D pygame racing environment. The current phase is still game/environment
-development: keep manual play responsive, deterministic, and testable before
-adding DQN/PPO training code.
+2D pygame racing environment. The current phase includes game/environment
+development plus an initial sensor-observation DQN pipeline. Keep manual play
+responsive, deterministic, and testable while expanding RL training code.
 
 Core design constraints:
 
@@ -53,6 +53,10 @@ Run the test suite:
 ```bash
 /home/jing/miniconda3/envs/system_dev/bin/python -m pytest
 ```
+
+This local workstation currently has no PyTorch installed, so DQN smoke tests
+are expected to skip here. Training validation should happen on a machine with
+PyTorch installed.
 
 Manual play on a machine with a display:
 
