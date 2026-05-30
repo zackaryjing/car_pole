@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import torch
 from torch import nn
+from tqdm.auto import tqdm
 
 from rl_racing.config import EnvConfig, ObservationConfig
 from rl_racing.env import RacingEnv
@@ -43,6 +44,7 @@ class DQNConfig:
     checkpoint_interval: int = 50_000
     device: str = "auto"
     run_name: str | None = None
+    progress: bool = True
 
 
 @dataclass(frozen=True)
@@ -113,7 +115,15 @@ def train_dqn(config: DQNConfig, output_root: str | Path = "runs/dqn_sensor") ->
     last_loss: float | None = None
     best_successes = 0
 
-    for step in range(1, config.total_steps + 1):
+    progress_bar = tqdm(
+        range(1, config.total_steps + 1),
+        total=config.total_steps,
+        desc="DQN",
+        unit="step",
+        dynamic_ncols=True,
+        disable=not config.progress,
+    )
+    for step in progress_bar:
         epsilon = _epsilon_at_step(config, step)
         action = _epsilon_greedy_action(online, obs, action_count, epsilon, device)
         next_obs, reward, terminated, truncated, next_info = env.step(action)
@@ -153,9 +163,21 @@ def train_dqn(config: DQNConfig, output_root: str | Path = "runs/dqn_sensor") ->
         if step % config.eval_interval == 0:
             successes = evaluate_and_record(online, config, run_dir, step, action_count, device)
             best_successes = max(best_successes, successes)
+            if config.progress:
+                progress_bar.write(f"eval step={step} successes={successes}/{config.eval_episodes}")
 
         if step % config.checkpoint_interval == 0:
             save_checkpoint(run_dir / "checkpoints" / f"step_{step}.pt", online, target, optimizer, config, step)
+
+        if config.progress and (step == 1 or step % 100 == 0 or done):
+            progress_bar.set_postfix(
+                {
+                    "episode": episode,
+                    "epsilon": f"{epsilon:.3f}",
+                    "loss": "" if last_loss is None else f"{last_loss:.4f}",
+                    "best_eval": best_successes,
+                }
+            )
 
     save_checkpoint(run_dir / "checkpoints" / "final.pt", online, target, optimizer, config, config.total_steps)
     return DQNTrainResult(run_dir=str(run_dir), final_step=config.total_steps, best_successes=best_successes)

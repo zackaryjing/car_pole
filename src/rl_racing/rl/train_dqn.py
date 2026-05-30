@@ -29,6 +29,7 @@ def main() -> None:
     parser.add_argument("--eval-episodes", type=int, default=DQNConfig.eval_episodes)
     parser.add_argument("--checkpoint-interval", type=int, default=DQNConfig.checkpoint_interval)
     parser.add_argument("--device", default=DQNConfig.device)
+    parser.add_argument("--no-progress", action="store_true")
     args = parser.parse_args()
 
     config = DQNConfig(
@@ -51,6 +52,7 @@ def main() -> None:
         checkpoint_interval=args.checkpoint_interval,
         device=args.device,
         run_name=args.run_name,
+        progress=not args.no_progress,
     )
     result = train_dqn(config, output_root=args.output_root)
     print(f"run_dir={result.run_dir}")
