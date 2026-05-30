@@ -1,0 +1,105 @@
+"""Watch a trained DQN policy in a pygame window."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from rl_racing.config import EnvConfig, ObservationConfig
+from rl_racing.env import RacingEnv
+from rl_racing.renderer import draw_world
+from rl_racing.rl.dqn import load_policy
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("checkpoint", type=Path)
+    parser.add_argument("--seed", type=int, default=10000)
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--view", choices=["follow", "global"], default="follow")
+    parser.add_argument("--width", type=int, default=1000)
+    parser.add_argument("--height", type=int, default=720)
+    parser.add_argument("--render-fps", type=int, default=60)
+    parser.add_argument("--sim-speed", type=float, default=1.0)
+    parser.add_argument("--pause-on-done", type=float, default=1.0)
+    args = parser.parse_args()
+
+    import pygame
+
+    policy = load_policy(args.checkpoint, device=args.device)
+    env = RacingEnv(EnvConfig(observation=ObservationConfig(obs_type="sensor")))
+    obs, info = env.reset(seed=args.seed)
+    policy.reset(args.seed, info)
+
+    pygame.init()
+    screen = pygame.display.set_mode((args.width, args.height))
+    pygame.display.set_caption(f"RL Racing Policy: {args.checkpoint}")
+    clock = pygame.time.Clock()
+
+    running = True
+    accumulator = 0.0
+    done_pause = 0.0
+    reward = 0.0
+    action = 0
+    view = args.view
+    seed = args.seed
+
+    while running:
+        frame_seconds = clock.tick(args.render_fps) / 1000.0
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                elif event.key == pygame.K_v:
+                    view = "global" if view == "follow" else "follow"
+                elif event.key == pygame.K_r:
+                    obs, info = env.reset(seed=seed)
+                    policy.reset(seed, info)
+                    done_pause = 0.0
+                    accumulator = 0.0
+                elif event.key == pygame.K_n:
+                    seed += 1
+                    obs, info = env.reset(seed=seed)
+                    policy.reset(seed, info)
+                    done_pause = 0.0
+                    accumulator = 0.0
+
+        if done_pause > 0.0:
+            done_pause = max(0.0, done_pause - frame_seconds)
+            if done_pause == 0.0:
+                obs, info = env.reset(seed=seed)
+                policy.reset(seed, info)
+                accumulator = 0.0
+        else:
+            accumulator += frame_seconds * max(args.sim_speed, 0.0)
+            while accumulator >= env.config.dt:
+                action = int(policy.act(obs, info))
+                obs, reward, terminated, truncated, info = env.step(action)
+                accumulator -= env.config.dt
+                if terminated or truncated:
+                    done_pause = max(args.pause_on_done, 0.0)
+                    break
+
+        assert env.track is not None and env.vehicle is not None
+        debug = [
+            f"checkpoint {args.checkpoint}",
+            f"seed {seed} view {view}",
+            f"sim_speed {args.sim_speed:.2f}x render_fps {args.render_fps}",
+            f"action {action}",
+            f"speed {env.vehicle.speed:6.1f}",
+            f"steer {env.vehicle.steering:6.2f}",
+            f"progress {info['progress']:.3f}",
+            f"reward {reward:7.3f}",
+            f"steps {info['steps']}",
+            f"done {info['done_reason']} success {info['success']}",
+        ]
+        draw_world(screen, env.track, env.vehicle, env.config, view=view, show_debug=True, debug_lines=debug)
+        pygame.display.flip()
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()
