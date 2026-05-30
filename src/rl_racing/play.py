@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -91,6 +92,7 @@ def main() -> None:
     parser.add_argument("--acceleration", type=float, default=None)
     args = parser.parse_args()
 
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
     import pygame
 
     pygame.init()

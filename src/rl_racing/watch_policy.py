@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
+from rl_racing.actions import action_to_control
 from rl_racing.config import EnvConfig, ObservationConfig
 from rl_racing.env import RacingEnv
 from rl_racing.renderer import draw_world
@@ -24,6 +26,7 @@ def main() -> None:
     parser.add_argument("--pause-on-done", type=float, default=1.0)
     args = parser.parse_args()
 
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
     import pygame
 
     policy = load_policy(args.checkpoint, device=args.device)
@@ -83,11 +86,13 @@ def main() -> None:
                     break
 
         assert env.track is not None and env.vehicle is not None
+        control = action_to_control(action)
         debug = [
             f"checkpoint {args.checkpoint}",
             f"seed {seed} view {view}",
             f"sim_speed {args.sim_speed:.2f}x render_fps {args.render_fps}",
-            f"action {action}",
+            f"action {action}: {_control_label(control.throttle, control.steer)}",
+            f"input  {_control_bars(control.throttle, control.steer)}",
             f"speed {env.vehicle.speed:6.1f}",
             f"steer {env.vehicle.steering:6.2f}",
             f"progress {info['progress']:.3f}",
@@ -99,6 +104,29 @@ def main() -> None:
         pygame.display.flip()
 
     pygame.quit()
+
+
+def _control_label(throttle: float, steer: float) -> str:
+    longitudinal = "COAST"
+    if throttle > 0.0:
+        longitudinal = "THROTTLE"
+    elif throttle < 0.0:
+        longitudinal = "BRAKE"
+
+    lateral = "STRAIGHT"
+    if steer < 0.0:
+        lateral = "LEFT"
+    elif steer > 0.0:
+        lateral = "RIGHT"
+    return f"{longitudinal} + {lateral}"
+
+
+def _control_bars(throttle: float, steer: float) -> str:
+    gas = "####" if throttle > 0.0 else "...."
+    brake = "####" if throttle < 0.0 else "...."
+    left = "####" if steer < 0.0 else "...."
+    right = "####" if steer > 0.0 else "...."
+    return f"THR[{gas}] BRK[{brake}] L[{left}] R[{right}]"
 
 
 if __name__ == "__main__":

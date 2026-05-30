@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
+from rl_racing.actions import action_to_control
 from rl_racing.episode import load_trajectory, trajectory_track, trajectory_vehicle_state
 from rl_racing.renderer import draw_world
 
@@ -20,6 +22,7 @@ def main() -> None:
     parser.add_argument("--loop", action="store_true")
     args = parser.parse_args()
 
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
     import pygame
 
     from rl_racing.config import EnvConfig
@@ -53,11 +56,15 @@ def main() -> None:
         index = min(int(frame), frame_count - 1)
         vehicle = trajectory_vehicle_state(trajectory, index)
         final_info = trajectory.metadata["final_info"]
+        action = int(trajectory.actions[min(index, len(trajectory.actions) - 1)]) if len(trajectory.actions) else 0
+        control = action_to_control(action)
         debug = [
             f"trajectory {args.trajectory}",
             f"view {args.view} speed {args.speed:.2f}x",
             f"frame {index}/{frame_count - 1}",
             f"seed {trajectory.metadata.get('seed')}",
+            f"action {action}: {_control_label(control.throttle, control.steer)}",
+            f"input  {_control_bars(control.throttle, control.steer)}",
             f"progress {trajectory.progress[index]:.3f}",
             f"result {final_info['done_reason']} success {final_info['success']}",
         ]
@@ -73,6 +80,29 @@ def main() -> None:
                 frame = float(frame_count - 1)
 
     pygame.quit()
+
+
+def _control_label(throttle: float, steer: float) -> str:
+    longitudinal = "COAST"
+    if throttle > 0.0:
+        longitudinal = "THROTTLE"
+    elif throttle < 0.0:
+        longitudinal = "BRAKE"
+
+    lateral = "STRAIGHT"
+    if steer < 0.0:
+        lateral = "LEFT"
+    elif steer > 0.0:
+        lateral = "RIGHT"
+    return f"{longitudinal} + {lateral}"
+
+
+def _control_bars(throttle: float, steer: float) -> str:
+    gas = "####" if throttle > 0.0 else "...."
+    brake = "####" if throttle < 0.0 else "...."
+    left = "####" if steer < 0.0 else "...."
+    right = "####" if steer > 0.0 else "...."
+    return f"THR[{gas}] BRK[{brake}] L[{left}] R[{right}]"
 
 
 if __name__ == "__main__":
