@@ -1,6 +1,6 @@
 # Agent Environment Record
 
-Last updated: 2026-05-29 18:16 UTC
+Last updated: 2026-05-30 00:00 UTC
 
 This file records the current progress and machine-specific environment for the
 Codex session running on the `jzy` server. `AGENTS.md` remains the project-level
@@ -100,10 +100,16 @@ Command:
 /root/miniconda3/envs/dmcad/bin/python -m pytest
 ```
 
-Result on this server:
+Result on this server before DQNv2:
 
 ```text
 32 passed in 19.78s
+```
+
+Result after adding DQNv2 vectorized training:
+
+```text
+35 passed in 13.29s
 ```
 
 Additional non-training smoke checks completed in `dmcad`:
@@ -118,6 +124,69 @@ Additional non-training smoke checks completed in `dmcad`:
   short episode successfully through the policy path.
 
 This was only a runtime smoke check, not formal training.
+
+## DQNv2 Vectorized Training Status
+
+DQNv2 adds a synchronous subprocess vector environment for sensor-observation
+DQN training:
+
+- `rl_racing.rl.vector_env.SubprocVectorEnv`
+- batched transition insertion with `ReplayBuffer.add_batch`
+- CLI arguments `--num-envs` and `--gradient-steps`
+- training fallback to the original DQN path when `--num-envs 1`
+
+CUDA smoke check on physical GPU 7 completed successfully:
+
+```bash
+CUDA_VISIBLE_DEVICES=7 /root/miniconda3/envs/dmcad/bin/python -m rl_racing.rl.train_dqn \
+  --device cuda \
+  --num-envs 8 \
+  --total-steps 512 \
+  --learning-starts 64 \
+  --batch-size 64 \
+  --replay-size 4096 \
+  --train-frequency 8 \
+  --gradient-steps 2 \
+  --target-update-interval 128 \
+  --eval-interval 256 \
+  --eval-episodes 2 \
+  --checkpoint-interval 256 \
+  --output-root /tmp/rl_racing_smoke \
+  --run-name dqn_v2_cuda7_smoke
+```
+
+Result:
+
+```text
+run_dir=/tmp/rl_racing_smoke/dqn_v2_cuda7_smoke
+final_step=512
+best_successes=0
+```
+
+Suggested one-to-two-hour GPU 7 run using CPU parallel rollout workers:
+
+```bash
+CUDA_VISIBLE_DEVICES=7 /root/miniconda3/envs/dmcad/bin/python -m rl_racing.rl.train_dqn \
+  --device cuda \
+  --num-envs 64 \
+  --total-steps 1000000 \
+  --learning-starts 20000 \
+  --batch-size 2048 \
+  --replay-size 1000000 \
+  --train-frequency 64 \
+  --gradient-steps 4 \
+  --target-update-interval 10000 \
+  --eval-interval 50000 \
+  --eval-episodes 5 \
+  --checkpoint-interval 50000 \
+  --hidden-dim 512 \
+  --epsilon-decay-steps 700000 \
+  --run-name dqn_v2_sensor_gpu7_1m_env64_seed0
+```
+
+If GPU utilization remains low and CPU workers are keeping up, increase
+`--gradient-steps` to `8` or `--batch-size` to `4096`. If environment workers
+become the bottleneck, increase `--num-envs` toward `96` or `128`.
 
 ## Useful Commands On This Server
 

@@ -47,6 +47,24 @@ class ReplayBuffer:
         self.position = (self.position + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
 
+    def add_batch(
+        self,
+        observations: NDArray,
+        actions: NDArray,
+        rewards: NDArray,
+        next_observations: NDArray,
+        dones: NDArray,
+    ) -> None:
+        batch_size = int(len(actions))
+        for idx in range(batch_size):
+            self.add(
+                observations[idx],
+                int(actions[idx]),
+                float(rewards[idx]),
+                next_observations[idx],
+                bool(dones[idx]),
+            )
+
     def sample(self, batch_size: int) -> ReplayBatch:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")

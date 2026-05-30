@@ -20,6 +20,7 @@ from rl_racing.episode import maybe_update_best_record, run_episode
 from rl_racing.policies import Policy
 from rl_racing.rl.networks import MLPQNetwork
 from rl_racing.rl.replay_buffer import ReplayBuffer
+from rl_racing.rl.vector_env import SubprocVectorEnv, make_sensor_env_config
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,7 @@ class DQNConfig:
     gamma: float = 0.99
     learning_rate: float = 1e-4
     train_frequency: int = 1
+    gradient_steps: int = 1
     target_update_interval: int = 1_000
     hidden_dim: int = 256
     epsilon_start: float = 1.0
@@ -45,6 +47,7 @@ class DQNConfig:
     device: str = "auto"
     run_name: str | None = None
     progress: bool = True
+    num_envs: int = 1
 
 
 @dataclass(frozen=True)
@@ -183,6 +186,125 @@ def train_dqn(config: DQNConfig, output_root: str | Path = "runs/dqn_sensor") ->
     return DQNTrainResult(run_dir=str(run_dir), final_step=config.total_steps, best_successes=best_successes)
 
 
+def train_dqn_v2(config: DQNConfig, output_root: str | Path = "runs/dqn_sensor") -> DQNTrainResult:
+    """Vectorized DQN trainer using subprocess environment workers."""
+
+    if config.num_envs <= 1:
+        return train_dqn(config, output_root=output_root)
+    np.random.seed(config.seed)
+    torch.manual_seed(config.seed)
+    device = _select_device(config.device)
+    run_dir = _make_run_dir(output_root, config)
+    (run_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+    (run_dir / "trajectories").mkdir(parents=True, exist_ok=True)
+    (run_dir / "best_records").mkdir(parents=True, exist_ok=True)
+    (run_dir / "config.json").write_text(json.dumps(asdict(config), indent=2, sort_keys=True), encoding="utf-8")
+
+    env_cfg = make_sensor_env_config(config.env_max_steps)
+    probe_env = RacingEnv(env_cfg)
+    probe_obs, _ = probe_env.reset(seed=config.seed)
+    obs_shape = tuple(probe_obs.shape)
+    action_count = probe_env.action_space_spec.n
+    assert action_count is not None
+
+    replay = ReplayBuffer(config.replay_size, obs_shape, seed=config.seed)
+    online = MLPQNetwork(int(np.prod(obs_shape)), action_count, config.hidden_dim).to(device)
+    target = MLPQNetwork(int(np.prod(obs_shape)), action_count, config.hidden_dim).to(device)
+    target.load_state_dict(online.state_dict())
+    optimizer = torch.optim.Adam(online.parameters(), lr=config.learning_rate)
+
+    metrics_path = run_dir / "metrics.csv"
+    _write_metrics_header(metrics_path)
+    rng = np.random.default_rng(config.seed)
+    global_step = 0
+    episode = 0
+    last_loss: float | None = None
+    best_successes = 0
+
+    with SubprocVectorEnv(config.num_envs, env_cfg, config.seed) as vec_env:
+        obs_batch, _ = vec_env.reset()
+        episode_rewards = np.zeros(config.num_envs, dtype=np.float64)
+        episode_steps = np.zeros(config.num_envs, dtype=np.int64)
+        progress_bar = tqdm(
+            total=config.total_steps,
+            desc=f"DQNv2[{config.num_envs} envs]",
+            unit="step",
+            dynamic_ncols=True,
+            disable=not config.progress,
+        )
+        while global_step < config.total_steps:
+            epsilon = _epsilon_at_step(config, global_step + 1)
+            actions = _epsilon_greedy_actions(online, obs_batch, action_count, epsilon, device, rng)
+            transition_next_obs, rewards, dones, infos, next_current_obs = vec_env.step(actions)
+            replay.add_batch(obs_batch, actions, rewards, transition_next_obs, dones)
+
+            episode_rewards += rewards
+            episode_steps += 1
+            previous_step = global_step
+            global_step += config.num_envs
+            obs_batch = next_current_obs
+
+            if (
+                global_step >= config.learning_starts
+                and len(replay) >= config.batch_size
+                and global_step % config.train_frequency == 0
+            ):
+                for _ in range(max(config.gradient_steps, 1)):
+                    last_loss = _optimize_step(online, target, optimizer, replay, config, device)
+
+            if global_step // config.target_update_interval != previous_step // config.target_update_interval:
+                target.load_state_dict(online.state_dict())
+
+            for env_idx, done in enumerate(dones):
+                if not done:
+                    continue
+                info = infos[env_idx]
+                _append_metrics(
+                    metrics_path,
+                    {
+                        "step": global_step,
+                        "episode": episode,
+                        "epsilon": epsilon,
+                        "episode_reward": float(episode_rewards[env_idx]),
+                        "episode_steps": int(episode_steps[env_idx]),
+                        "success": bool(info["success"]),
+                        "done_reason": info["done_reason"],
+                        "loss": "" if last_loss is None else last_loss,
+                    },
+                )
+                episode += 1
+                episode_rewards[env_idx] = 0.0
+                episode_steps[env_idx] = 0
+
+            if global_step // config.eval_interval != previous_step // config.eval_interval:
+                eval_step = (global_step // config.eval_interval) * config.eval_interval
+                successes = evaluate_and_record(online, config, run_dir, eval_step, action_count, device)
+                best_successes = max(best_successes, successes)
+                if config.progress:
+                    progress_bar.write(f"eval step={eval_step} successes={successes}/{config.eval_episodes}")
+
+            if global_step // config.checkpoint_interval != previous_step // config.checkpoint_interval:
+                ckpt_step = (global_step // config.checkpoint_interval) * config.checkpoint_interval
+                save_checkpoint(run_dir / "checkpoints" / f"step_{ckpt_step}.pt", online, target, optimizer, config, ckpt_step)
+
+            if config.progress:
+                progress_bar.update(min(global_step, config.total_steps) - min(previous_step, config.total_steps))
+                if global_step == config.num_envs or global_step % max(100, config.num_envs) == 0 or np.any(dones):
+                    progress_bar.set_postfix(
+                        {
+                            "episode": episode,
+                            "epsilon": f"{epsilon:.3f}",
+                            "loss": "" if last_loss is None else f"{last_loss:.4f}",
+                            "best_eval": best_successes,
+                            "replay": len(replay),
+                        }
+                    )
+        progress_bar.close()
+
+    save_checkpoint(run_dir / "checkpoints" / "final.pt", online, target, optimizer, config, global_step)
+    return DQNTrainResult(run_dir=str(run_dir), final_step=global_step, best_successes=best_successes)
+
+
 def evaluate_and_record(
     network: MLPQNetwork,
     config: DQNConfig,
@@ -282,6 +404,23 @@ def _epsilon_greedy_action(
         return int(torch.argmax(network(tensor), dim=1).item())
 
 
+def _epsilon_greedy_actions(
+    network: MLPQNetwork,
+    obs_batch: np.ndarray,
+    action_count: int,
+    epsilon: float,
+    device: torch.device,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    with torch.no_grad():
+        tensor = torch.as_tensor(obs_batch, dtype=torch.float32, device=device)
+        greedy = torch.argmax(network(tensor), dim=1).detach().cpu().numpy().astype(np.int64)
+    random_mask = rng.random(len(obs_batch)) < epsilon
+    if np.any(random_mask):
+        greedy[random_mask] = rng.integers(0, action_count, size=int(np.sum(random_mask)))
+    return greedy
+
+
 def _epsilon_at_step(config: DQNConfig, step: int) -> float:
     fraction = min(max(step / max(config.epsilon_decay_steps, 1), 0.0), 1.0)
     return config.epsilon_start + fraction * (config.epsilon_end - config.epsilon_start)
@@ -305,3 +444,12 @@ def _append_metrics(path: Path, row: dict[str, Any]) -> None:
             fieldnames=["step", "episode", "epsilon", "episode_reward", "episode_steps", "success", "done_reason", "loss"],
         )
         writer.writerow(row)
+
+
+def _write_metrics_header(path: Path) -> None:
+    with path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=["step", "episode", "epsilon", "episode_reward", "episode_steps", "success", "done_reason", "loss"],
+        )
+        writer.writeheader()

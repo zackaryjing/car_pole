@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from rl_racing.rl.dqn import DQNConfig, train_dqn
+from rl_racing.rl.dqn import DQNConfig, train_dqn, train_dqn_v2
 
 
 def main() -> None:
@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--gamma", type=float, default=DQNConfig.gamma)
     parser.add_argument("--learning-rate", type=float, default=DQNConfig.learning_rate)
     parser.add_argument("--train-frequency", type=int, default=DQNConfig.train_frequency)
+    parser.add_argument("--gradient-steps", type=int, default=DQNConfig.gradient_steps)
     parser.add_argument("--target-update-interval", type=int, default=DQNConfig.target_update_interval)
     parser.add_argument("--hidden-dim", type=int, default=DQNConfig.hidden_dim)
     parser.add_argument("--epsilon-start", type=float, default=DQNConfig.epsilon_start)
@@ -29,6 +30,7 @@ def main() -> None:
     parser.add_argument("--eval-episodes", type=int, default=DQNConfig.eval_episodes)
     parser.add_argument("--checkpoint-interval", type=int, default=DQNConfig.checkpoint_interval)
     parser.add_argument("--device", default=DQNConfig.device)
+    parser.add_argument("--num-envs", type=int, default=DQNConfig.num_envs)
     parser.add_argument("--no-progress", action="store_true")
     args = parser.parse_args()
 
@@ -42,6 +44,7 @@ def main() -> None:
         gamma=args.gamma,
         learning_rate=args.learning_rate,
         train_frequency=args.train_frequency,
+        gradient_steps=args.gradient_steps,
         target_update_interval=args.target_update_interval,
         hidden_dim=args.hidden_dim,
         epsilon_start=args.epsilon_start,
@@ -53,8 +56,10 @@ def main() -> None:
         device=args.device,
         run_name=args.run_name,
         progress=not args.no_progress,
+        num_envs=args.num_envs,
     )
-    result = train_dqn(config, output_root=args.output_root)
+    trainer = train_dqn_v2 if args.num_envs > 1 else train_dqn
+    result = trainer(config, output_root=args.output_root)
     print(f"run_dir={result.run_dir}")
     print(f"final_step={result.final_step}")
     print(f"best_successes={result.best_successes}")
