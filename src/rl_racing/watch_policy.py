@@ -9,7 +9,7 @@ from pathlib import Path
 from rl_racing.actions import action_to_control
 from rl_racing.config import EnvConfig, ObservationConfig
 from rl_racing.env import RacingEnv
-from rl_racing.renderer import draw_world
+from rl_racing.renderer import draw_control_overlay, draw_world
 from rl_racing.rl.dqn import load_policy
 
 
@@ -92,7 +92,6 @@ def main() -> None:
             f"seed {seed} view {view}",
             f"sim_speed {args.sim_speed:.2f}x render_fps {args.render_fps}",
             f"action {action}: {_control_label(control.throttle, control.steer)}",
-            f"input  {_control_bars(control.throttle, control.steer)}",
             f"speed {env.vehicle.speed:6.1f}",
             f"steer {env.vehicle.steering:6.2f}",
             f"progress {info['progress']:.3f}",
@@ -101,6 +100,7 @@ def main() -> None:
             f"done {info['done_reason']} success {info['success']}",
         ]
         draw_world(screen, env.track, env.vehicle, env.config, view=view, show_debug=True, debug_lines=debug)
+        draw_control_overlay(screen, control.throttle, control.steer, corner="bottom_left")
         pygame.display.flip()
 
     pygame.quit()
@@ -119,14 +119,6 @@ def _control_label(throttle: float, steer: float) -> str:
     elif steer > 0.0:
         lateral = "RIGHT"
     return f"{longitudinal} + {lateral}"
-
-
-def _control_bars(throttle: float, steer: float) -> str:
-    gas = "####" if throttle > 0.0 else "...."
-    brake = "####" if throttle < 0.0 else "...."
-    left = "####" if steer < 0.0 else "...."
-    right = "####" if steer > 0.0 else "...."
-    return f"THR[{gas}] BRK[{brake}] L[{left}] R[{right}]"
 
 
 if __name__ == "__main__":

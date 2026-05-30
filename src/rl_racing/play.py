@@ -10,7 +10,7 @@ from dataclasses import dataclass, replace
 from rl_racing.actions import Control
 from rl_racing.config import EnvConfig, ObservationConfig, VehicleConfig
 from rl_racing.env import RacingEnv
-from rl_racing.renderer import draw_world
+from rl_racing.renderer import draw_control_overlay, draw_world
 
 
 def consume_simulation_steps(
@@ -165,6 +165,7 @@ def main() -> None:
             f"done {info['done_reason']}",
         ]
         draw_world(screen, env.track, env.vehicle, env.config, view=view, show_debug=True, debug_lines=debug)
+        draw_control_overlay(screen, control.throttle, control.steer, corner="bottom_left")
         pygame.display.flip()
         frame_seconds = clock.tick(args.render_fps) / 1000.0
 

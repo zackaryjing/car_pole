@@ -8,7 +8,7 @@ from pathlib import Path
 
 from rl_racing.actions import action_to_control
 from rl_racing.episode import load_trajectory, trajectory_track, trajectory_vehicle_state
-from rl_racing.renderer import draw_world
+from rl_racing.renderer import draw_control_overlay, draw_world
 
 
 def main() -> None:
@@ -64,11 +64,11 @@ def main() -> None:
             f"frame {index}/{frame_count - 1}",
             f"seed {trajectory.metadata.get('seed')}",
             f"action {action}: {_control_label(control.throttle, control.steer)}",
-            f"input  {_control_bars(control.throttle, control.steer)}",
             f"progress {trajectory.progress[index]:.3f}",
             f"result {final_info['done_reason']} success {final_info['success']}",
         ]
         draw_world(screen, track, vehicle, cfg, view=args.view, show_debug=True, debug_lines=debug)
+        draw_control_overlay(screen, control.throttle, control.steer, corner="bottom_left")
         pygame.display.flip()
 
         dt = clock.tick(args.fps) / 1000.0
@@ -95,14 +95,6 @@ def _control_label(throttle: float, steer: float) -> str:
     elif steer > 0.0:
         lateral = "RIGHT"
     return f"{longitudinal} + {lateral}"
-
-
-def _control_bars(throttle: float, steer: float) -> str:
-    gas = "####" if throttle > 0.0 else "...."
-    brake = "####" if throttle < 0.0 else "...."
-    left = "####" if steer < 0.0 else "...."
-    right = "####" if steer > 0.0 else "...."
-    return f"THR[{gas}] BRK[{brake}] L[{left}] R[{right}]"
 
 
 if __name__ == "__main__":

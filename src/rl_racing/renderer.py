@@ -78,6 +78,39 @@ def draw_world(
         _draw_debug(surface, debug_lines or [])
 
 
+def draw_control_overlay(surface, throttle: float, steer: float, corner: str = "bottom_left") -> None:
+    import pygame
+
+    width, height = surface.get_size()
+    key_size = 42
+    gap = 8
+    margin = 18
+    block_width = key_size * 3 + gap * 2
+    block_height = key_size * 2 + gap
+    if corner == "bottom_right":
+        x0 = width - margin - block_width
+    elif corner == "bottom_left":
+        x0 = margin
+    else:
+        raise ValueError(f"unknown corner: {corner}")
+    y0 = height - margin - block_height
+
+    keys = [
+        ("up", x0 + key_size + gap, y0, throttle > 0.0),
+        ("left", x0, y0 + key_size + gap, steer < 0.0),
+        ("down", x0 + key_size + gap, y0 + key_size + gap, throttle < 0.0),
+        ("right", x0 + (key_size + gap) * 2, y0 + key_size + gap, steer > 0.0),
+    ]
+    for direction, x, y, active in keys:
+        rect = pygame.Rect(int(x), int(y), key_size, key_size)
+        fill = (218, 74, 66) if active else (78, 84, 84)
+        border = (255, 226, 218) if active else (142, 150, 150)
+        arrow = (255, 245, 240) if active else (185, 192, 192)
+        pygame.draw.rect(surface, fill, rect, border_radius=6)
+        pygame.draw.rect(surface, border, rect, width=2, border_radius=6)
+        _draw_arrow_icon(surface, rect, direction, arrow)
+
+
 def _make_camera(
     size: tuple[int, int], track: Track, vehicle: VehicleState, cfg: EnvConfig, view: str
 ) -> Camera:
@@ -192,3 +225,54 @@ def _draw_debug(surface, lines: list[str]) -> None:
         text = font.render(line, True, (245, 245, 235))
         surface.blit(text, (8, y))
         y += 22
+
+
+def _draw_arrow_icon(surface, rect, direction: str, color: tuple[int, int, int]) -> None:
+    import pygame
+
+    cx, cy = rect.center
+    w = rect.width
+    h = rect.height
+    if direction == "up":
+        points = [
+            (cx, cy - h * 0.30),
+            (cx - w * 0.24, cy - h * 0.02),
+            (cx - w * 0.10, cy - h * 0.02),
+            (cx - w * 0.10, cy + h * 0.28),
+            (cx + w * 0.10, cy + h * 0.28),
+            (cx + w * 0.10, cy - h * 0.02),
+            (cx + w * 0.24, cy - h * 0.02),
+        ]
+    elif direction == "down":
+        points = [
+            (cx, cy + h * 0.30),
+            (cx - w * 0.24, cy + h * 0.02),
+            (cx - w * 0.10, cy + h * 0.02),
+            (cx - w * 0.10, cy - h * 0.28),
+            (cx + w * 0.10, cy - h * 0.28),
+            (cx + w * 0.10, cy + h * 0.02),
+            (cx + w * 0.24, cy + h * 0.02),
+        ]
+    elif direction == "left":
+        points = [
+            (cx - w * 0.30, cy),
+            (cx - w * 0.02, cy - h * 0.24),
+            (cx - w * 0.02, cy - h * 0.10),
+            (cx + w * 0.28, cy - h * 0.10),
+            (cx + w * 0.28, cy + h * 0.10),
+            (cx - w * 0.02, cy + h * 0.10),
+            (cx - w * 0.02, cy + h * 0.24),
+        ]
+    elif direction == "right":
+        points = [
+            (cx + w * 0.30, cy),
+            (cx + w * 0.02, cy - h * 0.24),
+            (cx + w * 0.02, cy - h * 0.10),
+            (cx - w * 0.28, cy - h * 0.10),
+            (cx - w * 0.28, cy + h * 0.10),
+            (cx + w * 0.02, cy + h * 0.10),
+            (cx + w * 0.02, cy + h * 0.24),
+        ]
+    else:
+        raise ValueError(f"unknown arrow direction: {direction}")
+    pygame.draw.polygon(surface, color, [(int(x), int(y)) for x, y in points])

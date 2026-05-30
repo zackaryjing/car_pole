@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 from rl_racing.env import RacingEnv
-from rl_racing.renderer import draw_world
+from rl_racing.renderer import draw_control_overlay, draw_world
 
 
 def test_follow_renderer_has_no_enclosed_grass_holes_when_rotated(monkeypatch):
@@ -34,5 +34,27 @@ def test_follow_renderer_has_no_enclosed_grass_holes_when_rotated(monkeypatch):
                     enclosed_holes += 1
 
         assert enclosed_holes == 0
+    finally:
+        pygame.quit()
+
+
+def test_control_overlay_marks_active_directions(monkeypatch):
+    monkeypatch.setenv("SDL_VIDEODRIVER", "dummy")
+    import pygame
+
+    pygame.init()
+    try:
+        surface = pygame.Surface((240, 180))
+        surface.fill((0, 0, 0))
+        draw_control_overlay(surface, throttle=1.0, steer=-1.0)
+
+        arr = pygame.surfarray.array3d(surface)
+        red = np.array([218, 74, 66], dtype=np.uint8)
+        gray = np.array([78, 84, 84], dtype=np.uint8)
+
+        assert np.all(arr[72, 74] == red)
+        assert np.all(arr[22, 124] == red)
+        assert np.all(arr[72, 124] == gray)
+        assert np.all(arr[122, 124] == gray)
     finally:
         pygame.quit()
