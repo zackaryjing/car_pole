@@ -1,0 +1,12 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Game and environment runtime.
+numpy>=1.24
+pygame>=2.5
+
+# CPU-only DQN inference and lightweight training on machines without NVIDIA GPUs.
+torch==2.7.1+cpu
+tqdm>=4.66
+
+# Local verification.
+pytest>=8.0

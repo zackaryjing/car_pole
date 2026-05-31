@@ -20,22 +20,22 @@ Core design constraints:
 
 ## Python Environment
 
-On this Linux workstation, use the `system_dev` conda environment:
+On this Linux workstation, use the `agent_lab` conda environment:
 
 ```bash
-/home/jing/miniconda3/envs/system_dev/bin/python
+/home/jing/miniconda3/envs/agent_lab/bin/python
 ```
 
 Current verified version:
 
 ```text
-Python 3.9.24
+Python 3.11.15
 ```
 
 Use this interpreter explicitly for tests and Python commands in Codex sessions:
 
 ```bash
-/home/jing/miniconda3/envs/system_dev/bin/python -m pytest
+/home/jing/miniconda3/envs/agent_lab/bin/python -m pytest
 ```
 
 Do not assume `python` is available on PATH.
@@ -51,21 +51,21 @@ it affects future agents, summarize the rule here.
 Run the test suite:
 
 ```bash
-/home/jing/miniconda3/envs/system_dev/bin/python -m pytest
+/home/jing/miniconda3/envs/agent_lab/bin/python -m pytest
 ```
 
-This local workstation currently has no PyTorch installed, so DQN smoke tests
-are expected to skip here. Training validation should happen on a machine with
-PyTorch installed.
+This local workstation has CPU-only PyTorch installed. It is suitable for game
+development, DQN inference, and lightweight smoke tests. Full training
+validation should happen on a machine with a suitable GPU.
 
 Manual play on a machine with a display:
 
 ```bash
-/home/jing/miniconda3/envs/system_dev/bin/python -m rl_racing.play --view follow --seed 0
+/home/jing/miniconda3/envs/agent_lab/bin/python -m rl_racing.play --view follow --seed 0
 ```
 
 Headless tests:
 
 ```bash
-SDL_VIDEODRIVER=dummy /home/jing/miniconda3/envs/system_dev/bin/python -m pytest
+SDL_VIDEODRIVER=dummy /home/jing/miniconda3/envs/agent_lab/bin/python -m pytest
 ```

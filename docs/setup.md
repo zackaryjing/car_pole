@@ -8,32 +8,43 @@
 
 | Platform / machine | Environment | Python | Interpreter | Status |
 | --- | --- | --- | --- | --- |
-| 当前 Linux 工作站 | conda `system_dev` | 3.9.24 | `/home/jing/miniconda3/envs/system_dev/bin/python` | 当前 Codex 默认使用 |
+| 当前 Linux 工作站 | conda `agent_lab` | 3.11.15 | `/home/jing/miniconda3/envs/agent_lab/bin/python` | 当前 Codex 默认使用，CPU-only PyTorch |
+| 当前 Linux 工作站（旧） | conda `system_dev` | 3.9.24 | `/home/jing/miniconda3/envs/system_dev/bin/python` | 保留备用 |
 | 服务器历史记录 | conda `base` | 3.13 | `/root/miniconda3/bin/python` | 历史记录，见下方 |
 | 本地开发机 | conda `rl-racing` | 3.11 建议 | `python` after `conda activate rl-racing` | 建议配置 |
 
 当前 Linux 工作站请显式使用：
 
 ```bash
-/home/jing/miniconda3/envs/system_dev/bin/python
+/home/jing/miniconda3/envs/agent_lab/bin/python
 ```
 
 验证：
 
 ```bash
-/home/jing/miniconda3/envs/system_dev/bin/python --version
-/home/jing/miniconda3/envs/system_dev/bin/python -m pytest
+/home/jing/miniconda3/envs/agent_lab/bin/python --version
+/home/jing/miniconda3/envs/agent_lab/bin/python -m pytest
 ```
 
 当前已验证：
 
 ```text
-Python 3.9.24
-30 passed, 1 skipped
+Python 3.11.15
+36 passed
 ```
 
-当前 Linux 工作站没有安装 PyTorch，也没有 NVIDIA GPU。DQN smoke tests 在
-这里会 skip；训练正确性需要在安装了 PyTorch 的服务器或本地 GPU 机器上验证。
+当前 Linux 工作站没有 NVIDIA GPU。`agent_lab` 环境安装 CPU-only PyTorch，
+用于游戏开发、查看代码、少量推理和 DQN smoke tests；完整训练验证仍需要在
+合适的 GPU 机器上完成。
+
+环境名使用 `agent_lab` 而不是 `agent lab`，因为 Conda 环境名不允许包含空格。
+创建并安装本机环境：
+
+```bash
+conda create -n agent_lab python=3.11 -y
+conda run -n agent_lab python -m pip install -r requirements.txt
+conda run -n agent_lab python -m pip install -e . --no-deps
+```
 
 不要假设 `python` 命令在 Codex shell 中可用；当前 shell 中应使用上述绝对
 路径。
