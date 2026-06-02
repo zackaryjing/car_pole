@@ -10,7 +10,6 @@ from rl_racing.actions import action_to_control
 from rl_racing.config import EnvConfig, ObservationConfig
 from rl_racing.env import RacingEnv
 from rl_racing.renderer import draw_control_overlay, draw_world
-from rl_racing.rl.dqn import load_policy
 
 
 def main() -> None:
@@ -29,7 +28,7 @@ def main() -> None:
     os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
     import pygame
 
-    policy = load_policy(args.checkpoint, device=args.device)
+    policy = _load_policy(args.checkpoint, device=args.device)
     env = RacingEnv(EnvConfig(observation=ObservationConfig(obs_type="sensor")))
     obs, info = env.reset(seed=args.seed)
     policy.reset(args.seed, info)
@@ -104,6 +103,17 @@ def main() -> None:
         pygame.display.flip()
 
     pygame.quit()
+
+
+def _load_policy(checkpoint: Path, device: str):
+    import torch
+
+    payload = torch.load(checkpoint, map_location="cpu")
+    if payload.get("algorithm") == "ppo" or "actor_critic" in payload:
+        from rl_racing.rl.ppo import load_policy
+    else:
+        from rl_racing.rl.dqn import load_policy
+    return load_policy(checkpoint, device=device)
 
 
 def _control_label(throttle: float, steer: float) -> str:

@@ -260,6 +260,49 @@ rl-racing-train-dqn --device cuda --total-steps 200000 --batch-size 256 --run-na
 rl-racing-train-dqn --device cuda --batch-size 64 --replay-size 100000 --total-steps 50000
 ```
 
+## 8.3 PPO Training
+
+当前已有 sensor-observation PPO：
+
+- `rl_racing.rl.networks.MLPActorCritic`: 共享 MLP backbone，离散 policy head 和 value head。
+- `rl_racing.rl.ppo.train_ppo(...)`: subprocess vector rollout、GAE、clipped objective、value loss、entropy bonus。
+- 时间截断 `max_steps` 会正确 bootstrap value；碰撞、出界、成功终止不会 bootstrap。
+- `rl_racing.rl.ppo.load_policy(...)`: 从 PPO checkpoint 加载 greedy policy。
+- CLI: `rl-racing-train-ppo` 或 `python -m rl_racing.rl.train_ppo`。
+- `rl_racing.watch_policy` 会自动识别 DQN/PPO checkpoint。
+
+PPO 输出：
+
+```text
+runs/ppo_sensor/<run-name>/
+  config.json
+  metrics.csv
+  updates.csv
+  eval_metrics.csv
+  checkpoints/
+    best_eval.pt
+    final.pt
+  trajectories/
+  best_records/
+```
+
+4090 服务器建议从以下配置开始：
+
+```bash
+CUDA_VISIBLE_DEVICES=7 python -m rl_racing.rl.train_ppo \
+  --device cuda \
+  --num-envs 64 \
+  --rollout-steps 256 \
+  --total-steps 2000000 \
+  --batch-size 4096 \
+  --update-epochs 10 \
+  --hidden-dim 512 \
+  --eval-interval 50000 \
+  --eval-episodes 20 \
+  --checkpoint-interval 100000 \
+  --run-name ppo_sensor_gpu7_2m_env64_seed0
+```
+
 ## 9. 当前测试状态
 
 当前测试命令：

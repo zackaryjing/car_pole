@@ -99,6 +99,9 @@ def _worker(conn: Connection, env_config: EnvConfig, seed: int) -> None:
             elif command == "step":
                 next_obs, reward, terminated, truncated, info = env.step(int(payload))
                 done = bool(terminated or truncated)
+                info = dict(info)
+                info["terminated"] = bool(terminated)
+                info["truncated"] = bool(truncated)
                 transition_obs = next_obs
                 if done:
                     current_seed += 10_000
@@ -114,4 +117,3 @@ def _worker(conn: Connection, env_config: EnvConfig, seed: int) -> None:
                 raise ValueError(f"unknown command: {command}")
     except EOFError:
         return
-

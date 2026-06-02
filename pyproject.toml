@@ -18,6 +18,7 @@ dev = [
 [project.scripts]
 rl-racing-play = "rl_racing.play:main"
 rl-racing-train-dqn = "rl_racing.rl.train_dqn:main"
+rl-racing-train-ppo = "rl_racing.rl.train_ppo:main"
 rl-racing-view-trajectory = "rl_racing.view_trajectory:main"
 rl-racing-watch-policy = "rl_racing.watch_policy:main"
 

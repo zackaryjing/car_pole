@@ -1,6 +1,6 @@
 # Agent Environment Record
 
-Last updated: 2026-05-30 00:00 UTC
+Last updated: 2026-06-02 00:00 UTC
 
 This file records the current progress and machine-specific environment for the
 Codex session running on the `jzy` server. `AGENTS.md` remains the project-level
@@ -187,6 +187,73 @@ CUDA_VISIBLE_DEVICES=7 /root/miniconda3/envs/dmcad/bin/python -m rl_racing.rl.tr
 If GPU utilization remains low and CPU workers are keeping up, increase
 `--gradient-steps` to `8` or `--batch-size` to `4096`. If environment workers
 become the bottleneck, increase `--num-envs` toward `96` or `128`.
+
+## PPO Vectorized Training Status
+
+Sensor-observation PPO is available as a separate on-policy pipeline:
+
+- `rl_racing.rl.networks.MLPActorCritic`
+- `rl_racing.rl.ppo.train_ppo`
+- `rl_racing.rl.ppo.load_policy`
+- CLI entrypoint `rl-racing-train-ppo`
+- subprocess vector rollout workers shared with DQNv2
+- GAE with correct time-limit truncation bootstrap
+- clipped policy objective, value loss, entropy bonus, gradient clipping
+- `metrics.csv`, `updates.csv`, and aggregated `eval_metrics.csv`
+- automatic `checkpoints/best_eval.pt`
+
+Full test result after adding PPO:
+
+```text
+41 passed in 16.45s
+```
+
+CUDA smoke check on physical GPU 7 completed successfully:
+
+```bash
+CUDA_VISIBLE_DEVICES=7 /root/miniconda3/envs/dmcad/bin/python -m rl_racing.rl.train_ppo \
+  --device cuda \
+  --num-envs 4 \
+  --rollout-steps 8 \
+  --total-steps 64 \
+  --batch-size 16 \
+  --update-epochs 1 \
+  --hidden-dim 32 \
+  --env-max-steps 20 \
+  --eval-interval 32 \
+  --eval-episodes 2 \
+  --checkpoint-interval 32 \
+  --output-root /tmp/rl_racing_smoke \
+  --run-name ppo_cuda7_smoke \
+  --no-progress
+```
+
+Suggested first PPO GPU 7 experiment:
+
+```bash
+CUDA_VISIBLE_DEVICES=7 /root/miniconda3/envs/dmcad/bin/python -m rl_racing.rl.train_ppo \
+  --device cuda \
+  --num-envs 64 \
+  --rollout-steps 256 \
+  --total-steps 2000000 \
+  --batch-size 4096 \
+  --update-epochs 10 \
+  --hidden-dim 512 \
+  --eval-interval 50000 \
+  --eval-episodes 20 \
+  --checkpoint-interval 100000 \
+  --run-name ppo_sensor_gpu7_2m_env64_seed0
+```
+
+Watch a PPO best-eval checkpoint with the same viewer used for DQN:
+
+```bash
+CUDA_VISIBLE_DEVICES=7 /root/miniconda3/envs/dmcad/bin/python -m rl_racing.watch_policy \
+  runs/ppo_sensor/ppo_sensor_gpu7_2m_env64_seed0/checkpoints/best_eval.pt \
+  --device cuda \
+  --seed 10000 \
+  --view follow
+```
 
 ## Useful Commands On This Server
 
