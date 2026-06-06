@@ -48,17 +48,23 @@ python -m rl_racing.play --seed 0 --sim-speed 1.5 --max-speed 380 --acceleration
 rl-racing-play --view follow --seed 0
 ```
 
-控制：
+窗口内操作：
 
 - `W` / `Up`: 加速。
 - `S` / `Down`: 刹车，速度降到 0 后继续按会倒车。
 - `A` / `Left`: 左转。
 - `D` / `Right`: 右转。
 - 松开方向键后方向盘会逐步自动回正，不会瞬间归零。
+- `V`: 切换 `follow` / `global` 视角。
 - `R`: 用当前 seed 重置。
 - `N`: 切到下一个 seed。
-- `V`: 切换 `follow` / `global` 视角。
 - `Esc`: 退出。
+
+人工试玩、模型在线观察和轨迹回放都会在左下角显示方向键 overlay：
+
+- 灰色表示当前没有按下或模型没有选择该方向。
+- 红色表示当前帧正在加速、刹车或转向。
+- 组合动作会同时点亮多个键，例如加速右转会同时点亮上键和右键。
 
 训练代码不经过 pygame 主循环；直接调用 `env.step(action)`，所以不会被渲染 FPS 限速。
 
@@ -89,6 +95,44 @@ rl-racing-train-dqn --device cuda --batch-size 64 --replay-size 100000 --total-s
 
 训练输出默认写到 `runs/dqn_sensor/<run-name>/`，包含 `config.json`、
 `metrics.csv`、`checkpoints/`、`trajectories/` 和 `best_records/`。
+
+PPO 训练入口：
+
+```bash
+rl-racing-train-ppo --device auto --total-steps 2000000 --run-name ppo_sensor_seed0
+```
+
+训练后可以在线观察 DQN 或 PPO checkpoint。`watch_policy` 会自动识别 checkpoint 类型：
+
+```bash
+python -m rl_racing.watch_policy \
+  runs/ppo_sensor/ppo_sensor_seed0/checkpoints/best_eval.pt \
+  --device auto \
+  --seed 10000 \
+  --view follow
+```
+
+模型观察窗口内快捷键：
+
+- `V`: 切换 `follow` / `global` 视角。
+- `R`: 用当前 seed 重新运行模型。
+- `N`: 切到下一个 seed 并重新运行模型。
+- `Esc`: 退出。
+
+也可以直接回放保存过的轨迹，例如训练 eval 成功轨迹：
+
+```bash
+python -m rl_racing.view_trajectory \
+  runs/ppo_sensor/ppo_sensor_seed0/trajectories/step_50000_seed_10000 \
+  --view follow \
+  --loop
+```
+
+轨迹回放窗口内快捷键：
+
+- `V`: 切换 `follow` / `global` 视角。
+- `R`: 从轨迹开头重新播放。
+- `Esc`: 退出。
 
 运行测试：
 
